@@ -138,6 +138,22 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Zip<X, Y>, ZipStre
         return stream().collect(supplier, accumulator, combiner);
     }
 
+    default boolean anyMatch(BiPredicate<X, Y> p) {
+        return stream().anyMatch(o -> p.test(o.x(), o.y()));
+    }
+
+    default boolean allMatch(BiPredicate<X, Y> p) {
+        return stream().allMatch(o -> p.test(o.x(), o.y()));
+    }
+
+    default long count() {
+        return Math.min(toX().count(), toY().count());
+    }
+
+    default ZipStream<X, Y> limit(long limit) {
+        return ZipStream.from(toX().limit(limit), toY().limit(limit));
+    }
+
     @Override
     default boolean isParallel() {
         return stream().isParallel();
