@@ -10,24 +10,20 @@ import java.util.stream.StreamSupport;
 
 final class ZipStreamImpl<X, Y> implements ZipStream<X, Y> {
 
-    private final Stream<Of<X, Y>> stream;
+    private final Stream<Zip<X, Y>> stream;
 
-    ZipStreamImpl(Stream<X> xs, Stream<Y> ys) {
-        this(stream(xs, ys, OfImpl::new));
-    }
-
-    ZipStreamImpl(Stream<Of<X, Y>> stream) {
+    ZipStreamImpl(Stream<Zip<X, Y>> stream) {
         this.stream = stream == null ? Stream.empty() : stream;
     }
 
     @Override
-    public Stream<Of<X, Y>> stream() {
+    public Stream<Zip<X, Y>> stream() {
         return stream;
     }
 
     @Override
     public ZipStream<Y, X> flip() {
-        return new ZipStreamImpl<>(toY(), toX());
+        return ZipStreamImpl.zip(toY(), toX());
     }
 
     @Override
@@ -46,18 +42,18 @@ final class ZipStreamImpl<X, Y> implements ZipStream<X, Y> {
     }
 
     @Override
-    public <A, B> ZipStream<A, B> map(Function<X, A> xa, Function<Y, B> yb) {
-        return zip(stream().map(o -> new OfImpl<>(xa.apply(o.x()), yb.apply(o.y()))));
+    public <A, B> ZipStream<A, B> map(Function<X, A> x2a, Function<Y, B> y2b) {
+        return zip(stream().map(o -> ZipStreamImpl.zip(x2a.apply(o.x()), y2b.apply(o.y()))));
     }
 
     @Override
     public <A> ZipStream<A, Y> mapX(Function<X, A> f) {
-        return zip(stream().map(o -> new OfImpl<>(f.apply(o.x()), o.y())));
+        return zip(stream().map(o -> ZipStreamImpl.zip(f.apply(o.x()), o.y())));
     }
 
     @Override
     public <B> ZipStream<X, B> mapY(Function<Y, B> f) {
-        return zip(stream().map(o -> new OfImpl<>(o.x(), f.apply(o.y()))));
+        return zip(stream().map(o -> ZipStreamImpl.zip(o.x(), f.apply(o.y()))));
     }
 
     @Override
@@ -80,8 +76,38 @@ final class ZipStreamImpl<X, Y> implements ZipStream<X, Y> {
         return zip(stream().onClose(closeHandler));
     }
 
-    private static <A, B> ZipStreamImpl<A, B> zip(Stream<Of<A, B>> stream) {
+    static class ZipImpl<X, Y> implements Zip<X, Y> {
+
+        private final X x;
+
+        private final Y y;
+
+        ZipImpl(X x, Y y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        @Override
+        public X x() {
+            return x;
+        }
+
+        @Override
+        public Y y() {
+            return y;
+        }
+    }
+
+    static <A, B> ZipStream<A, B> zip(Stream<A> as, Stream<B> bs) {
+        return zip(stream(as, bs, ZipStreamImpl::zip));
+    }
+
+    static <A, B> ZipStream<A, B> zip(Stream<Zip<A, B>> stream) {
         return new ZipStreamImpl<>(stream);
+    }
+
+    static <A, B> Zip<A, B> zip(A a, B b) {
+        return new ZipImpl<>(a, b);
     }
 
     private static <X, Y, T> Stream<T> stream(Stream<X> xs, Stream<Y> ys, BiFunction<X, Y, T> f) {
@@ -90,10 +116,7 @@ final class ZipStreamImpl<X, Y> implements ZipStream<X, Y> {
                 xs.isParallel() || ys.isParallel());
     }
 
-    private static <X, Y, T> Iterable<T> iterable(
-            Iterator<X> xi,
-            Iterator<Y> yi,
-            BiFunction<X, Y, T> f) {
+    private static <X, Y, T> Iterable<T> iterable(Iterator<X> xi, Iterator<Y> yi, BiFunction<X, Y, T> f) {
         return () -> new Iterator<T>() {
             @Override
             public boolean hasNext() {

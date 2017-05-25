@@ -9,31 +9,31 @@ import java.util.function.*;
 import java.util.stream.*;
 
 @SuppressWarnings("unused")
-public interface ZipStream<X, Y> extends BaseStream<ZipStream.Of<X, Y>, ZipStream<X, Y>> {
+public interface ZipStream<X, Y> extends BaseStream<ZipStream.Zip<X, Y>, ZipStream<X, Y>> {
 
-    static <X, Y> ZipStream<X, Y> of(Stream<X> xs, Stream<Y> ys) {
-        return new ZipStreamImpl<>(xs, ys);
+    static <X, Y> ZipStream<X, Y> from(Stream<X> xs, Stream<Y> ys) {
+        return ZipStreamImpl.zip(xs, ys);
     }
 
-    static <X, Y> ZipStream<X, Y> of(Stream<X> xs, Function<X, Y> f) {
-        return new ZipStreamImpl<>(xs.map(x -> new OfImpl<>(x, f.apply(x))));
+    static <X, Y> ZipStream<X, Y> from(Stream<X> xs, Function<X, Y> f) {
+        return ZipStreamImpl.zip(xs.map(x -> ZipStreamImpl.zip(x, f.apply(x))));
     }
 
-    static <X, Y> ZipStream<X, Y> of(Map<X, Y> map) {
-        return new ZipStreamImpl<>(map.entrySet().stream().map(e -> new OfImpl<>(e.getKey(), e.getValue())));
+    static <X, Y> ZipStream<X, Y> from(Map<X, Y> map) {
+        return ZipStreamImpl.zip(map.entrySet().stream().map(e -> ZipStreamImpl.zip(e.getKey(), e.getValue())));
     }
 
-    static <X, Y> ZipStream<X, Y> ofEntries(Collection<Map.Entry<X, Y>> entries) {
-        return new ZipStreamImpl<>(entries.stream().map(e -> new OfImpl<>(e.getKey(), e.getValue())));
+    static <X, Y> ZipStream<X, Y> fromEntries(Collection<Map.Entry<X, Y>> es) {
+        return ZipStreamImpl.zip(es.stream().map(e -> ZipStreamImpl.zip(e.getKey(), e.getValue())));
     }
 
-    static <X, Y> ZipStream<X, Y> ofEntries(Stream<Map.Entry<X, Y>> entries) {
-        return new ZipStreamImpl<>(entries.map(e -> new OfImpl<>(e.getKey(), e.getValue())));
+    static <X, Y> ZipStream<X, Y> fromEntries(Stream<Map.Entry<X, Y>> es) {
+        return ZipStreamImpl.zip(es.map(e -> ZipStreamImpl.zip(e.getKey(), e.getValue())));
     }
 
-    static <Y> ZipStream<Long, Y> ofIndexed(Stream<Y> ys) {
+    static <Y> ZipStream<Long, Y> withIndexes(Stream<Y> ys) {
         AtomicLong al = new AtomicLong();
-        return new ZipStreamImpl<>(ys.map(y -> new OfImpl<>(al.getAndIncrement(), y)));
+        return ZipStreamImpl.zip(ys.map(y -> ZipStreamImpl.zip(al.getAndIncrement(), y)));
     }
 
     ZipStream<Y, X> flip();
@@ -44,13 +44,25 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Of<X, Y>, ZipStrea
 
     ZipStream<X, Y> filterY(Predicate<Y> p);
 
-    <A, B> ZipStream<A, B> map(Function<X, A> xa, Function<Y, B> yb);
+    <A, B> ZipStream<A, B> map(Function<X, A> x2a, Function<Y, B> y2b);
 
     <A> ZipStream<A, Y> mapX(Function<X, A> f);
 
     <B> ZipStream<X, B> mapY(Function<Y, B> f);
 
-    Stream<Of<X, Y>> stream();
+    Stream<Zip<X, Y>> stream();
+
+    default <A, B> ZipStream<A, B> flatMap(Function<X, Stream<A>> x2a, Function<Y, Stream<B>> y2b) {
+        return from(toX().flatMap(x2a), toY().flatMap(y2b));
+    }
+
+    default <A> ZipStream<A, Y> flatMapX(Function<X, Stream<A>> x2a) {
+        return from(toX().flatMap(x2a), toY());
+    }
+
+    default <B> ZipStream<X, B> flatMapY(Function<Y, Stream<B>> y2b) {
+        return ZipStreamImpl.zip(toX(), toY().flatMap(y2b));
+    }
 
     default IntStream mapToInt(BiFunction<X, Y, Integer> f) {
         return stream().mapToInt(o -> f.apply(o.x(), o.y()));
@@ -64,28 +76,16 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Of<X, Y>, ZipStrea
         return stream().mapToDouble(o -> f.apply(o.x(), o.y()));
     }
 
-    default <A, B> ZipStream<A, B> flatMap(Function<X, Stream<A>> xa, Function<Y, Stream<B>> yb) {
-        return of(toX().flatMap(xa), toY().flatMap(yb));
-    }
-
-    default <A> ZipStream<A, Y> flatMapX(Function<X, Stream<A>> xa) {
-        return of(toX().flatMap(xa), toY());
-    }
-
-    default <B> ZipStream<X, B> flatMapY(Function<Y, Stream<B>> yb) {
-        return new ZipStreamImpl<>(toX(), toY().flatMap(yb));
-    }
-
     default Map<X, Y> toMap() {
-        return stream().collect(Collectors.toMap(Of::x, Of::y));
+        return stream().collect(Collectors.toMap(Zip::x, Zip::y));
     }
 
     default Map<X, Y> toMap(BinaryOperator<Y> merge) {
-        return stream().collect(Collectors.toMap(Of::x, Of::y, merge));
+        return stream().collect(Collectors.toMap(Zip::x, Zip::y, merge));
     }
 
     default Map<X, Y> toMap(BinaryOperator<Y> merge, Supplier<Map<X, Y>> map) {
-        return stream().collect(Collectors.toMap(Of::x, Of::y, merge, map));
+        return stream().collect(Collectors.toMap(Zip::x, Zip::y, merge, map));
     }
 
     default void forEach(BiConsumer<X, Y> op) {
@@ -109,18 +109,18 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Of<X, Y>, ZipStrea
     }
 
     default Stream<X> toX() {
-        return stream().map(Of::x);
+        return stream().map(Zip::x);
     }
 
     default Stream<Y> toY() {
-        return stream().map(Of::y);
+        return stream().map(Zip::y);
     }
 
     default <R> R reduce(R r, Reducer<R, X, Y> fun, BinaryOperator<R> combiner) {
         return stream().reduce(r, (acc, o) -> fun.apply(acc, o.x(), o.y()), combiner);
     }
 
-    default <R, A> R collect(Collector<Of<X, Y>, A, R> collector) {
+    default <R, A> R collect(Collector<Zip<X, Y>, A, R> collector) {
         return stream().collect(collector);
     }
 
@@ -133,7 +133,7 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Of<X, Y>, ZipStrea
     }
 
     default <R> R collect(Supplier<R> supplier,
-                          BiConsumer<R, Of<X, Y>> accumulator,
+                          BiConsumer<R, Zip<X, Y>> accumulator,
                           BiConsumer<R, R> combiner) {
         return stream().collect(supplier, accumulator, combiner);
     }
@@ -144,7 +144,7 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Of<X, Y>, ZipStrea
     }
 
     @Override
-    default Iterator<Of<X, Y>> iterator() {
+    default Iterator<Zip<X, Y>> iterator() {
         return stream().iterator();
     }
 
@@ -154,7 +154,7 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Of<X, Y>, ZipStrea
     }
 
     @Override
-    default Spliterator<Of<X, Y>> spliterator() {
+    default Spliterator<Zip<X, Y>> spliterator() {
         return stream().spliterator();
     }
 
@@ -163,7 +163,7 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Of<X, Y>, ZipStrea
         R apply(R t, X a, Y b);
     }
 
-    interface Of<X, Y> {
+    interface Zip<X, Y> {
 
         X x();
 
