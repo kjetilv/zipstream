@@ -1,12 +1,16 @@
 package no.scienta.alchemy.zipstream;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import static no.scienta.alchemy.zipstream.ZipStream.from;
 
 final class ZipStreamImpl<X, Y> implements ZipStream<X, Y> {
 
@@ -22,8 +26,39 @@ final class ZipStreamImpl<X, Y> implements ZipStream<X, Y> {
     }
 
     @Override
+    public <A, B> ZipStream<A, B> flatMap(Function<X, Stream<A>> x2a, Function<Y, Stream<B>> y2b) {
+        List<Zip<X, Y>> zips = zips();
+        return from(xs(zips).flatMap(x2a), ys(zips).flatMap(y2b));
+    }
+
+    @Override
+    public <A> ZipStream<A, Y> flatMapX(Function<X, Stream<A>> x2a) {
+        List<Zip<X, Y>> zips = zips();
+        return from(xs(zips).flatMap(x2a), ys(zips));
+    }
+
+    @Override
+    public <B> ZipStream<X, B> flatMapY(Function<Y, Stream<B>> y2b) {
+        List<Zip<X, Y>> zips = zips();
+        return ZipStreamImpl.zip(xs(zips), ys(zips).flatMap(y2b));
+    }
+
+    @Override
+    public long count() {
+        List<Zip<X, Y>> zips = zips();
+        return Math.min(xs(zips).count(), ys(zips).count());
+    }
+
+    @Override
+    public ZipStream<X, Y> limit(long limit) {
+        List<Zip<X, Y>> zips = zips();
+        return from(xs(zips).limit(limit), ys(zips).limit(limit));
+    }
+
+    @Override
     public ZipStream<Y, X> flip() {
-        return ZipStreamImpl.zip(toY(), toX());
+        List<Zip<X, Y>> zs = zips();
+        return ZipStreamImpl.zip(ys(zs), xs(zs));
     }
 
     @Override
@@ -74,6 +109,18 @@ final class ZipStreamImpl<X, Y> implements ZipStream<X, Y> {
     @Override
     public ZipStream<X, Y> onClose(Runnable closeHandler) {
         return zip(stream().onClose(closeHandler));
+    }
+
+    private List<Zip<X, Y>> zips() {
+        return stream().collect(Collectors.toList());
+    }
+
+    private Stream<Y> ys(List<Zip<X, Y>> zips) {
+        return zips.stream().map(Zip::y);
+    }
+
+    private Stream<X> xs(List<Zip<X, Y>> zips) {
+        return zips.stream().map(Zip::x);
     }
 
     static class ZipImpl<X, Y> implements Zip<X, Y> {

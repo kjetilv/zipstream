@@ -1,14 +1,11 @@
 package no.scienta.alchemy.zipstream;
 
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Spliterator;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.*;
 import java.util.stream.*;
 
-@SuppressWarnings("unused")
+@SuppressWarnings("SameParameterValue")
 public interface ZipStream<X, Y> extends BaseStream<ZipStream.Zip<X, Y>, ZipStream<X, Y>> {
 
     static <X, Y> ZipStream<X, Y> from(Stream<X> xs, Stream<Y> ys) {
@@ -52,17 +49,15 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Zip<X, Y>, ZipStre
 
     Stream<Zip<X, Y>> stream();
 
-    default <A, B> ZipStream<A, B> flatMap(Function<X, Stream<A>> x2a, Function<Y, Stream<B>> y2b) {
-        return from(toX().flatMap(x2a), toY().flatMap(y2b));
-    }
+    <A, B> ZipStream<A, B> flatMap(Function<X, Stream<A>> x2a, Function<Y, Stream<B>> y2b);
 
-    default <A> ZipStream<A, Y> flatMapX(Function<X, Stream<A>> x2a) {
-        return from(toX().flatMap(x2a), toY());
-    }
+    <A> ZipStream<A, Y> flatMapX(Function<X, Stream<A>> x2a);
 
-    default <B> ZipStream<X, B> flatMapY(Function<Y, Stream<B>> y2b) {
-        return ZipStreamImpl.zip(toX(), toY().flatMap(y2b));
-    }
+    <B> ZipStream<X, B> flatMapY(Function<Y, Stream<B>> y2b);
+
+    long count();
+
+    ZipStream<X, Y> limit(long limit);
 
     default IntStream mapToInt(BiFunction<X, Y, Integer> f) {
         return stream().mapToInt(o -> f.apply(o.x(), o.y()));
@@ -120,6 +115,14 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Zip<X, Y>, ZipStre
         return stream().reduce(r, (acc, o) -> fun.apply(acc, o.x(), o.y()), combiner);
     }
 
+    default <R> R reduceX(R r, BiFunction<R, X, R> fun, BinaryOperator<R> combiner) {
+        return stream().reduce(r, (acc, o) -> fun.apply(acc, o.x()), combiner);
+    }
+
+    default <R> R reduceY(R r, BiFunction<R, Y, R> fun, BinaryOperator<R> combiner) {
+        return stream().reduce(r, (acc, o) -> fun.apply(acc, o.y()), combiner);
+    }
+
     default <R, A> R collect(Collector<Zip<X, Y>, A, R> collector) {
         return stream().collect(collector);
     }
@@ -142,16 +145,24 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Zip<X, Y>, ZipStre
         return stream().anyMatch(o -> p.test(o.x(), o.y()));
     }
 
+    default boolean anyMatchX(Predicate<X> p) {
+        return stream().anyMatch(o -> p.test(o.x()));
+    }
+
+    default boolean anyMatchY(Predicate<Y> p) {
+        return stream().anyMatch(o -> p.test(o.y()));
+    }
+
     default boolean allMatch(BiPredicate<X, Y> p) {
         return stream().allMatch(o -> p.test(o.x(), o.y()));
     }
 
-    default long count() {
-        return Math.min(toX().count(), toY().count());
+    default boolean allMatchX(Predicate<X> p) {
+        return stream().allMatch(o -> p.test(o.x()));
     }
 
-    default ZipStream<X, Y> limit(long limit) {
-        return ZipStream.from(toX().limit(limit), toY().limit(limit));
+    default boolean allMatchY(Predicate<Y> p) {
+        return stream().allMatch(o -> p.test(o.y()));
     }
 
     @Override
