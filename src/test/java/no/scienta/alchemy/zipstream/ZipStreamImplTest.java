@@ -20,6 +20,27 @@ public class ZipStreamImplTest {
     }
 
     @Test
+    public void testFlatMapFromIndex() {
+        Stream<Character> characterStream = indexedBar("bar")
+                .flatMap((id, c2) -> Stream.of(c2));
+        assertEquals("bar", joinChars(characterStream));
+    }
+
+    @Test
+    public void testFlatMapXFromIndex() {
+        ZipStream<Long, Character> bar = indexedBar("bar")
+                .flatMapX(Stream::of);
+        assertEquals("0b1a2r", joinZipChars(bar));
+    }
+
+    @Test
+    public void testFlatMapYFromIndex() {
+        ZipStream<Long, Character> bar = indexedBar("bar")
+                .flatMapY(Stream::of);
+        assertEquals("0b1a2r", joinZipChars(bar));
+    }
+
+    @Test
     public void testFlatMap2() {
         ZipStream<Character, Character> map = foobar("foo", "bar").flatMap(Stream::of, Stream::of);
         assertEquals("fboaor", joinZipChars(map));
@@ -119,9 +140,21 @@ public class ZipStreamImplTest {
     }
 
     @Test
+    public void testCountFromIndex() {
+        ZipStream<Long, Character> barrr = indexedBar("foo");
+        assertEquals(3, barrr.count());
+    }
+
+    @Test
     public void testLimit() {
         ZipStream<Character, Character> barrr = foobar("foo", "barrr");
         assertEquals("fboa", joinZipChars(barrr.limit(2)));
+    }
+
+    @Test
+    public void testLimitFromIndex() {
+        ZipStream<Long, Character> barrr = indexedBar("fooarr");
+        assertEquals("0f1o2o", joinZipChars(barrr.limit(3)));
     }
 
     @Test
@@ -166,6 +199,20 @@ public class ZipStreamImplTest {
     }
 
     @Test
+    public void testFlipFromIndex() {
+        String ab = indexedBar("foo")
+                .map((c1, c2) -> "" + c1 + c2)
+                .collect(Collectors.joining());
+        assertEquals("0f1o2o", ab);
+
+        String ba = indexedBar("foo")
+                .flip()
+                .map((c1, c2) -> "" + c1 + c2)
+                .collect(Collectors.joining());
+        assertEquals("f0o1o2", ba);
+    }
+
+    @Test
     public void testReduce() {
         ZipStream<Character, Character> foobar = foobar("foo", "bar");
         String reduce = foobar.reduce("1969", (t, a, b) -> t + a + b, String::concat);
@@ -191,12 +238,20 @@ public class ZipStreamImplTest {
         ZipStream<Character, Character> ab = foobar("12", "ab");
         Map<Character, Character> map = ab.toMap();
         assertEquals(2, map.size());
-        assertEquals((int)'a', (int)map.get('1'));
-        assertEquals((int)'b', (int)map.get('2'));
+        assertEquals((int) 'a', (int) map.get('1'));
+        assertEquals((int) 'b', (int) map.get('2'));
+
+        ZipStream<Character, Character> from = ZipStream.from(map);
+        ZipStream<Character, Character> rStream = from.flatMap(Stream::of, Stream::of);
+        assertEquals("1a2b", joinZipChars(rStream));
     }
 
     private ZipStream<Character, Character> foobar(String foo, String bar) {
         return ZipStream.from(chars(foo), chars(bar));
+    }
+
+    private ZipStream<Long, Character> indexedBar(String bar) {
+        return ZipStream.withIndexes(chars(bar));
     }
 
     private String joinZipChars(ZipStream<?, ?> map) {

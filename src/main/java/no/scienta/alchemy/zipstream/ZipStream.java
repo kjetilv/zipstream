@@ -1,52 +1,55 @@
 package no.scienta.alchemy.zipstream;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Spliterator;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.*;
 import java.util.stream.*;
 
-import static no.scienta.alchemy.zipstream.ZipStreamImpl.zip;
+import static no.scienta.alchemy.zipstream.ZipStreamImpl.newZip;
 
 @SuppressWarnings("SameParameterValue")
 public interface ZipStream<X, Y> extends BaseStream<ZipStream.Zip<X, Y>, ZipStream<X, Y>> {
 
     static <X, Y> ZipStream<X, Y> from(Stream<X> xs, Stream<Y> ys) {
-        return zip(xs, ys);
+        return ZipStreamImpl.newZipStream(xs, ys);
     }
 
     static <X, Y> ZipStream<X, Y> from(Stream<X> xs, Function<X, Y> f) {
-        return zip(xs.map(x -> zip(x, f.apply(x))));
+        return ZipStreamImpl.newZipStream(xs.map(x -> newZip(x, f.apply(x))));
     }
 
     static <X, Y> ZipStream<X, Y> from(Map<X, Y> map) {
-        return zip(map.entrySet().stream().map(e -> zip(e.getKey(), e.getValue())));
+        return ZipStreamImpl.newZipStream(map.entrySet().stream().map(e -> newZip(e.getKey(), e.getValue())));
     }
 
     static <X, Y> ZipStream<X, Y> fromEntries(Collection<Map.Entry<X, Y>> es) {
-        return zip(es.stream().map(e -> zip(e.getKey(), e.getValue())));
+        return ZipStreamImpl.newZipStream(es.stream().map(e -> newZip(e.getKey(), e.getValue())));
     }
 
     static <X, Y> ZipStream<X, Y> fromEntries(Stream<Map.Entry<X, Y>> es) {
-        return zip(es.map(e -> zip(e.getKey(), e.getValue())));
+        return ZipStreamImpl.newZipStream(es.map(e -> newZip(e.getKey(), e.getValue())));
     }
 
     static <Y> ZipStream<Long, Y> withIndexes(Stream<Y> ys) {
         AtomicLong al = new AtomicLong();
-        return zip(ys.map(y -> zip(al.getAndIncrement(), y)));
+        return ZipStreamImpl.newZipStream(ys.map(y -> newZip(al.getAndIncrement(), y)));
     }
 
     ZipStream<Y, X> flip();
 
     default ZipStream<X, Y> filter(BiPredicate<X, Y> p) {
-        return zip(stream().filter(o -> p.test(o.x(), o.y())));
+        return ZipStreamImpl.newZipStream(stream().filter(o -> p.test(o.x(), o.y())));
     }
 
     default ZipStream<X, Y> filterX(Predicate<X> p) {
-        return zip(stream().filter(o -> p.test(o.x())));
+        return ZipStreamImpl.newZipStream(stream().filter(o -> p.test(o.x())));
     }
 
     default ZipStream<X, Y> filterY(Predicate<Y> p) {
-        return zip(stream().filter(o -> p.test(o.y())));
+        return ZipStreamImpl.newZipStream(stream().filter(o -> p.test(o.y())));
     }
 
     <A, B> ZipStream<A, B> map(Function<X, A> x2a, Function<Y, B> y2b);
