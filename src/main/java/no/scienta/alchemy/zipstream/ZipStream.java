@@ -8,48 +8,54 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.*;
 import java.util.stream.*;
 
-import static no.scienta.alchemy.zipstream.ZipStreamImpl.newZip;
-
 @SuppressWarnings("SameParameterValue")
 public interface ZipStream<X, Y> extends BaseStream<ZipStream.Zip<X, Y>, ZipStream<X, Y>> {
 
     static <X, Y> ZipStream<X, Y> from(Stream<X> xs, Stream<Y> ys) {
-        return ZipStreamImpl.newZipStream(xs, ys);
+        return new UnmergedZipStream<>(xs, ys);
     }
 
     static <X, Y> ZipStream<X, Y> from(Stream<X> xs, Function<X, Y> f) {
-        return ZipStreamImpl.newZipStream(xs.map(x -> newZip(x, f.apply(x))));
+        Stream<Zip<X, Y>> stream = xs.map(x -> new ZipImpl<>(x, f.apply(x)));
+        return new MergedZipStream<>(stream);
     }
 
     static <X, Y> ZipStream<X, Y> from(Map<X, Y> map) {
-        return ZipStreamImpl.newZipStream(map.entrySet().stream().map(e -> newZip(e.getKey(), e.getValue())));
+        Stream<Zip<X, Y>> stream = map.entrySet().stream().map(e -> new ZipImpl<>(e.getKey(), e.getValue()));
+        return new MergedZipStream<>(stream);
     }
 
     static <X, Y> ZipStream<X, Y> fromEntries(Collection<Map.Entry<X, Y>> es) {
-        return ZipStreamImpl.newZipStream(es.stream().map(e -> newZip(e.getKey(), e.getValue())));
+        Stream<Zip<X, Y>> stream = es.stream().map(e -> new ZipImpl<>(e.getKey(), e.getValue()));
+        return new MergedZipStream<>(stream);
     }
 
     static <X, Y> ZipStream<X, Y> fromEntries(Stream<Map.Entry<X, Y>> es) {
-        return ZipStreamImpl.newZipStream(es.map(e -> newZip(e.getKey(), e.getValue())));
+        Stream<Zip<X, Y>> stream = es.map(e -> new ZipImpl<>(e.getKey(), e.getValue()));
+        return new MergedZipStream<>(stream);
     }
 
     static <Y> ZipStream<Long, Y> withIndexes(Stream<Y> ys) {
         AtomicLong al = new AtomicLong();
-        return ZipStreamImpl.newZipStream(ys.map(y -> newZip(al.getAndIncrement(), y)));
+        Stream<Zip<Long, Y>> stream = ys.map(y -> new ZipImpl<>(al.getAndIncrement(), y));
+        return new MergedZipStream<>(stream);
     }
 
     ZipStream<Y, X> flip();
 
     default ZipStream<X, Y> filter(BiPredicate<X, Y> p) {
-        return ZipStreamImpl.newZipStream(stream().filter(o -> p.test(o.x(), o.y())));
+        Stream<Zip<X, Y>> stream = stream().filter(o -> p.test(o.x(), o.y()));
+        return new MergedZipStream<>(stream);
     }
 
     default ZipStream<X, Y> filterX(Predicate<X> p) {
-        return ZipStreamImpl.newZipStream(stream().filter(o -> p.test(o.x())));
+        Stream<Zip<X, Y>> stream = stream().filter(o -> p.test(o.x()));
+        return new MergedZipStream<>(stream);
     }
 
     default ZipStream<X, Y> filterY(Predicate<Y> p) {
-        return ZipStreamImpl.newZipStream(stream().filter(o -> p.test(o.y())));
+        Stream<Zip<X, Y>> stream = stream().filter(o -> p.test(o.y()));
+        return new MergedZipStream<>(stream);
     }
 
     <A, B> ZipStream<A, B> map(Function<X, A> x2a, Function<Y, B> y2b);

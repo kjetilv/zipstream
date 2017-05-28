@@ -2,15 +2,15 @@ package no.scienta.alchemy.zipstream;
 
 import org.junit.Test;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
+import java.util.stream.*;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class ZipStreamImplTest {
+public class ZipStreamTest {
 
     @Test
     public void testFlatMap() {
@@ -244,6 +244,55 @@ public class ZipStreamImplTest {
         ZipStream<Character, Character> from = ZipStream.from(map);
         ZipStream<Character, Character> rStream = from.flatMap(Stream::of, Stream::of);
         assertEquals("1a2b", joinZipChars(rStream));
+    }
+
+    @Test
+    public void testMapToInt() {
+        ZipStream<Integer, Integer> s = ZipStream.withIndexes(IntStream.range(0, 3).boxed())
+                .mapX(Long::intValue);
+        IntStream intStream = s.mapToInt((i1, i2) -> i1 + i2);
+        assertEquals(6, intStream.sum());
+    }
+
+    @Test
+    public void testMapToLong() {
+        ZipStream<Long, Long> s = ZipStream.withIndexes(LongStream.range(0, 3).boxed());
+        LongStream longStream = s.mapToLong((i1, i2) -> i1 + i2);
+        assertEquals(6L, longStream.sum());
+    }
+
+    @Test
+    public void testMapToDouble() {
+        ZipStream<Double, Double> s = ZipStream.withIndexes(DoubleStream.of(0.0D, 1.0D, 2.0D).boxed())
+                .mapX(Long::doubleValue);
+        DoubleStream longStream = s.mapToDouble((i1, i2) -> i1 + i2);
+        assertEquals(6.0D, longStream.sum(), 0.01D);
+    }
+
+    @Test
+    public void testCollectX() {
+        ZipStream<Long, Character> bar = indexedBar("bar");
+        List<Long> longs = bar.collectX(Collectors.toList());
+        assertEquals(Arrays.asList(0L, 1L, 2L), longs);
+    }
+
+    @Test
+    public void testCollectY() {
+        ZipStream<Long, Character> bar = indexedBar("bar");
+        List<Character> longs = bar.collectY(Collectors.toList());
+        assertEquals(Arrays.asList('b', 'a', 'r'), longs);
+    }
+
+    @Test
+    public void testCollect() {
+        ZipStream<Long, Character> bar = indexedBar("bar");
+        List<ZipStream.Zip<Long, Character>> collect = bar.collect(Collectors.toList());
+        assertEquals('b', collect.get(0).y().charValue());
+        assertEquals('a', collect.get(1).y().charValue());
+        assertEquals('r', collect.get(2).y().charValue());
+        assertEquals(0, collect.get(0).x().intValue());
+        assertEquals(1, collect.get(1).x().intValue());
+        assertEquals(2, collect.get(2).x().intValue());
     }
 
     private ZipStream<Character, Character> foobar(String foo, String bar) {
