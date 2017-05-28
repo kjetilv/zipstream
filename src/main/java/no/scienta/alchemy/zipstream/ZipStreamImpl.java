@@ -2,10 +2,8 @@ package no.scienta.alchemy.zipstream;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.BiFunction;
-import java.util.function.BiPredicate;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -14,66 +12,78 @@ import static no.scienta.alchemy.zipstream.ZipStream.from;
 
 final class ZipStreamImpl<X, Y> implements ZipStream<X, Y> {
 
-    private final Stream<Zip<X, Y>> stream;
+    private final AtomicReference<Stream<X>> xs;
 
-    ZipStreamImpl(Stream<Zip<X, Y>> stream) {
-        this.stream = stream == null ? Stream.empty() : stream;
+    private final AtomicReference<Stream<Y>> ys;
+
+    private final AtomicReference<Stream<Zip<X, Y>>> stream;
+
+    private ZipStreamImpl(Stream<X> xs, Stream<Y> ys, Stream<Zip<X, Y>> stream) {
+        this.xs = new AtomicReference<>(xs);
+        this.ys = new AtomicReference<>(ys);
+        this.stream = new AtomicReference<>(stream);
+    }
+
+    @Override
+    public Stream<X> toX() {
+        return xs.updateAndGet(xs -> {
+            if (xs != null) {
+                return xs;
+            }
+            List<Zip<X, Y>> collected = collectZips();
+            return set(this.ys, ys(collected), xs(collected));
+        });
+    }
+
+    @Override
+    public Stream<Y> toY() {
+        return ys.updateAndGet(ys -> {
+            if (ys != null) {
+                return ys;
+            }
+            List<Zip<X, Y>> collected = collectZips();
+            return set(this.xs, xs(collected), ys(collected));
+        });
     }
 
     @Override
     public Stream<Zip<X, Y>> stream() {
-        return stream;
+        return stream.updateAndGet(stream -> {
+            if (stream == null) {
+                return ZipStreamImpl.lazyZip(xs.get(), ys.get());
+            }
+            return stream;
+        });
     }
 
     @Override
     public <A, B> ZipStream<A, B> flatMap(Function<X, Stream<A>> x2a, Function<Y, Stream<B>> y2b) {
-        List<Zip<X, Y>> zips = zips();
-        return from(xs(zips).flatMap(x2a), ys(zips).flatMap(y2b));
+        return from(toX().flatMap(x2a), toY().flatMap(y2b));
     }
 
     @Override
     public <A> ZipStream<A, Y> flatMapX(Function<X, Stream<A>> x2a) {
-        List<Zip<X, Y>> zips = zips();
-        return from(xs(zips).flatMap(x2a), ys(zips));
+        return from(toX().flatMap(x2a), toY());
     }
 
     @Override
     public <B> ZipStream<X, B> flatMapY(Function<Y, Stream<B>> y2b) {
-        List<Zip<X, Y>> zips = zips();
-        return ZipStreamImpl.zip(xs(zips), ys(zips).flatMap(y2b));
+        return from(toX(), toY().flatMap(y2b));
     }
 
     @Override
     public long count() {
-        List<Zip<X, Y>> zips = zips();
-        return Math.min(xs(zips).count(), ys(zips).count());
+        return Math.min(toX().count(), toY().count());
     }
 
     @Override
     public ZipStream<X, Y> limit(long limit) {
-        List<Zip<X, Y>> zips = zips();
-        return from(xs(zips).limit(limit), ys(zips).limit(limit));
+        return from(toX().limit(limit), toY().limit(limit));
     }
 
     @Override
     public ZipStream<Y, X> flip() {
-        List<Zip<X, Y>> zs = zips();
-        return ZipStreamImpl.zip(ys(zs), xs(zs));
-    }
-
-    @Override
-    public ZipStream<X, Y> filter(BiPredicate<X, Y> p) {
-        return zip(stream().filter(o -> p.test(o.x(), o.y())));
-    }
-
-    @Override
-    public ZipStream<X, Y> filterX(Predicate<X> p) {
-        return zip(stream().filter(o -> p.test(o.x())));
-    }
-
-    @Override
-    public ZipStream<X, Y> filterY(Predicate<Y> p) {
-        return zip(stream().filter(o -> p.test(o.y())));
+        return zip(toY(), toX());
     }
 
     @Override
@@ -111,16 +121,28 @@ final class ZipStreamImpl<X, Y> implements ZipStream<X, Y> {
         return zip(stream().onClose(closeHandler));
     }
 
-    private List<Zip<X, Y>> zips() {
-        return stream().collect(Collectors.toList());
-    }
-
     private Stream<Y> ys(List<Zip<X, Y>> zips) {
         return zips.stream().map(Zip::y);
     }
 
     private Stream<X> xs(List<Zip<X, Y>> zips) {
         return zips.stream().map(Zip::x);
+    }
+
+    private List<Zip<X, Y>> collectZips() {
+        return stream().collect(Collectors.toList());
+    }
+
+    static <A, B> ZipStream<A, B> zip(Stream<A> as, Stream<B> bs) {
+        return new ZipStreamImpl<>(as == null ? Stream.empty() : as, bs == null ? Stream.empty() : bs, null);
+    }
+
+    static <A, B> ZipStream<A, B> zip(Stream<Zip<A, B>> stream) {
+        return new ZipStreamImpl<>(null, null, stream == null ? Stream.empty() : stream);
+    }
+
+    static <A, B> Zip<A, B> zip(A a, B b) {
+        return new ZipImpl<>(a, b);
     }
 
     static class ZipImpl<X, Y> implements Zip<X, Y> {
@@ -145,34 +167,27 @@ final class ZipStreamImpl<X, Y> implements ZipStream<X, Y> {
         }
     }
 
-    static <A, B> ZipStream<A, B> zip(Stream<A> as, Stream<B> bs) {
-        return zip(stream(as, bs, ZipStreamImpl::zip));
+    private static <A, B> Stream<A> set(AtomicReference<Stream<B>> that, Stream<B> those, Stream<A> these) {
+        that.set(those);
+        return these;
     }
 
-    static <A, B> ZipStream<A, B> zip(Stream<Zip<A, B>> stream) {
-        return new ZipStreamImpl<>(stream);
-    }
-
-    static <A, B> Zip<A, B> zip(A a, B b) {
-        return new ZipImpl<>(a, b);
-    }
-
-    private static <X, Y, T> Stream<T> stream(Stream<X> xs, Stream<Y> ys, BiFunction<X, Y, T> f) {
-        Iterable<T> i = iterable(xs.iterator(), ys.iterator(), f);
+    private static <X, Y> Stream<Zip<X, Y>> lazyZip(Stream<X> xs, Stream<Y> ys) {
+        Iterable<Zip<X, Y>> i = iterable(xs.iterator(), ys.iterator());
         return StreamSupport.stream(i.spliterator(),
                 xs.isParallel() || ys.isParallel());
     }
 
-    private static <X, Y, T> Iterable<T> iterable(Iterator<X> xi, Iterator<Y> yi, BiFunction<X, Y, T> f) {
-        return () -> new Iterator<T>() {
+    private static <X, Y> Iterable<Zip<X, Y>> iterable(Iterator<X> xi, Iterator<Y> yi) {
+        return () -> new Iterator<Zip<X, Y>>() {
             @Override
             public boolean hasNext() {
                 return xi.hasNext() && yi.hasNext();
             }
 
             @Override
-            public T next() {
-                return f.apply(xi.next(), yi.next());
+            public Zip<X, Y> next() {
+                return zip(xi.next(), yi.next());
             }
         };
     }
