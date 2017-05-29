@@ -1,5 +1,7 @@
-package no.scienta.alchemy.zipstream;
+package no.scienta.alchemy.zipstream.test;
 
+import no.scienta.alchemy.zipstream.ZipStream;
+import no.scienta.alchemy.zipstream.ZipStreams;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -64,6 +66,15 @@ public class ZipStreamTest {
         assertEquals("fXbYoXaYoXrY", joinZipChars(stream));
     }
 
+    @SuppressWarnings("RedundantStreamOptionalCall")
+    @Test
+    public void testMapMerged() {
+        ZipStream<Character, Character> flip = ZipStreams.from(chars("foo"), chars("bar"))
+                .filter((character, character2) -> true);
+        ZipStream<String, String> stream = flip.map(c -> c + "X", c -> c + "Y");
+        assertEquals("fXbYoXaYoXrY", joinZipChars(stream));
+    }
+
     @Test
     public void testMapX() {
         ZipStream<String, Character> map = foobar("foo", "bar").mapX(s -> "" + s + s);
@@ -73,6 +84,15 @@ public class ZipStreamTest {
     @Test
     public void testMapY() {
         ZipStream<Character, String> map = foobar("foo", "bar").mapY(s -> "" + s + s);
+        assertEquals("fbboaaorr", joinZipChars(map));
+    }
+
+    @SuppressWarnings("RedundantStreamOptionalCall")
+    @Test
+    public void testMapYMerged() {
+        ZipStream<Character, String> map = foobar("foo", "bar")
+                .filter((c1, c2) -> true)
+                .mapY(s -> "" + s + s);
         assertEquals("fbboaaorr", joinZipChars(map));
     }
 
@@ -160,7 +180,7 @@ public class ZipStreamTest {
     @Test
     public void testZip() {
         assertZipped(
-                ZipStream.from(
+                ZipStreams.from(
                         IntStream.range(0, 10).boxed(),
                         chars("ThisIsATest", Integer.MAX_VALUE)),
                 "0T1h2i3s4I5s6A7T8e9s");
@@ -168,7 +188,7 @@ public class ZipStreamTest {
 
     @Test
     public void testIndexedZip() {
-        assertZipped(ZipStream.withIndexes(chars("ThisIsATest", 10)),
+        assertZipped(ZipStreams.withIndexes(chars("ThisIsATest", 10)),
                 "0T1h2i3s4I5s6A7T8e9s");
     }
 
@@ -182,6 +202,28 @@ public class ZipStreamTest {
         });
 
         assertEquals("o-ro-af-b", sb.toString());
+    }
+
+    @Test
+    public void testSideEffectsX() {
+        StringBuilder sb = new StringBuilder();
+        foobar("foo", "bar").forEachX(c1 -> {
+            sb.insert(0, c1);
+            sb.insert(0, "-");
+        });
+
+        assertEquals("-o-o-f", sb.toString());
+    }
+
+    @Test
+    public void testSideEffectsY() {
+        StringBuilder sb = new StringBuilder();
+        foobar("foo", "bar").forEachY(c2 -> {
+            sb.insert(0, c2);
+            sb.insert(0, "-");
+        });
+
+        assertEquals("-r-a-b", sb.toString());
     }
 
     @Test
@@ -241,14 +283,34 @@ public class ZipStreamTest {
         assertEquals((int) 'a', (int) map.get('1'));
         assertEquals((int) 'b', (int) map.get('2'));
 
-        ZipStream<Character, Character> from = ZipStream.from(map);
+        ZipStream<Character, Character> from = ZipStreams.from(map);
         ZipStream<Character, Character> rStream = from.flatMap(Stream::of, Stream::of);
         assertEquals("1a2b", joinZipChars(rStream));
     }
 
     @Test
+    public void testFromEntries() {
+        Map<Character, Character> ab = foobar("12", "ab").toMap();
+        ZipStream<Character, Character> stream = ZipStreams.fromEntries(ab.entrySet());
+        assertEquals("1a2b", joinZipChars(stream));
+    }
+
+    @Test
+    public void testFromEntriesStream() {
+        Map<Character, Character> ab = foobar("12", "ab").toMap();
+        ZipStream<Character, Character> stream = ZipStreams.fromEntries(ab.entrySet().stream());
+        assertEquals("1a2b", joinZipChars(stream));
+    }
+
+    @Test
+    public void testFromFun() {
+        ZipStream<Character, Character> bar = ZipStreams.computed(chars("bar"), Character::toUpperCase);
+        assertEquals("bBaArR", joinZipChars(bar));
+    }
+
+    @Test
     public void testMapToInt() {
-        ZipStream<Integer, Integer> s = ZipStream.withIndexes(IntStream.range(0, 3).boxed())
+        ZipStream<Integer, Integer> s = ZipStreams.withIndexes(IntStream.range(0, 3).boxed())
                 .mapX(Long::intValue);
         IntStream intStream = s.mapToInt((i1, i2) -> i1 + i2);
         assertEquals(6, intStream.sum());
@@ -256,14 +318,14 @@ public class ZipStreamTest {
 
     @Test
     public void testMapToLong() {
-        ZipStream<Long, Long> s = ZipStream.withIndexes(LongStream.range(0, 3).boxed());
+        ZipStream<Long, Long> s = ZipStreams.withIndexes(LongStream.range(0, 3).boxed());
         LongStream longStream = s.mapToLong((i1, i2) -> i1 + i2);
         assertEquals(6L, longStream.sum());
     }
 
     @Test
     public void testMapToDouble() {
-        ZipStream<Double, Double> s = ZipStream.withIndexes(DoubleStream.of(0.0D, 1.0D, 2.0D).boxed())
+        ZipStream<Double, Double> s = ZipStreams.withIndexes(DoubleStream.of(0.0D, 1.0D, 2.0D).boxed())
                 .mapX(Long::doubleValue);
         DoubleStream longStream = s.mapToDouble((i1, i2) -> i1 + i2);
         assertEquals(6.0D, longStream.sum(), 0.01D);
@@ -284,23 +346,79 @@ public class ZipStreamTest {
     }
 
     @Test
-    public void testCollect() {
-        ZipStream<Long, Character> bar = indexedBar("bar");
-        List<ZipStream.Zip<Long, Character>> collect = bar.collect(Collectors.toList());
-        assertEquals('b', collect.get(0).y().charValue());
-        assertEquals('a', collect.get(1).y().charValue());
-        assertEquals('r', collect.get(2).y().charValue());
-        assertEquals(0, collect.get(0).x().intValue());
-        assertEquals(1, collect.get(1).x().intValue());
-        assertEquals(2, collect.get(2).x().intValue());
+    public void testIsParallel() {
+        ZipStream<Character, Character> from = ZipStreams.from(chars("foo"), chars("bar").parallel());
+        assertTrue(from.isParallel());
+    }
+
+    @Test
+    public void testParallel() {
+        ZipStream<Character, Character> from = ZipStreams.from(chars("foo"), chars("bar"));
+        assertTrue(from.parallel().isParallel());
+    }
+
+    @Test
+    public void testSortedX() {
+        ZipStream<String, Integer> stream =
+                ZipStreams.computed(Stream.of("ccc", "bb", "a"), String::length);
+        assertEquals("a1bb2ccc3", joinZipChars(stream.sortedX()));
+    }
+
+    @Test
+    public void testSortedXUnmerged() {
+        ZipStream<String, Integer> stream =
+                ZipStreams.from(Stream.of("ccc", "bb", "a"), IntStream.of(3, 2, 1).boxed());
+        assertEquals("a1bb2ccc3", joinZipChars(stream.sortedX()));
+    }
+
+    @Test
+    public void testSortedXComparator() {
+        ZipStream<String, Integer> stream =
+                ZipStreams.computed(Stream.of("ccc", "bb", "a"), String::length);
+        assertEquals("a1bb2ccc3", joinZipChars(stream.sortedX(String::compareTo)));
+    }
+
+    @Test
+    public void testSortedXUnmergedComparator() {
+        ZipStream<String, Integer> stream =
+                ZipStreams.from(Stream.of("ccc", "bb", "a"), IntStream.of(3, 2, 1).boxed());
+        assertEquals("a1bb2ccc3", joinZipChars(stream.sortedX(String::compareTo)));
+    }
+
+    @Test
+    public void testSortedY() {
+        ZipStream<String, Integer> stream =
+                ZipStreams.computed(Stream.of("ccc", "bb", "a"), String::length);
+        assertEquals("a1bb2ccc3", joinZipChars(stream.sortedY()));
+    }
+
+    @Test
+    public void testSortedYUnmerged() {
+        ZipStream<String, Integer> stream =
+                ZipStreams.from(Stream.of("ccc", "bb", "a"), IntStream.of(3, 2, 1).boxed());
+        assertEquals("a1bb2ccc3", joinZipChars(stream.sortedY()));
+    }
+
+    @Test
+    public void testSortedYComparator() {
+        ZipStream<String, Integer> stream =
+                ZipStreams.computed(Stream.of("ccc", "bb", "a"), String::length);
+        assertEquals("a1bb2ccc3", joinZipChars(stream.sortedY(Integer::compareTo)));
+    }
+
+    @Test
+    public void testSortedYUnmergedComparator() {
+        ZipStream<String, Integer> stream =
+                ZipStreams.from(Stream.of("ccc", "bb", "a"), IntStream.of(3, 2, 1).boxed());
+        assertEquals("a1bb2ccc3", joinZipChars(stream.sortedY(Integer::compareTo)));
     }
 
     private ZipStream<Character, Character> foobar(String foo, String bar) {
-        return ZipStream.from(chars(foo), chars(bar));
+        return ZipStreams.from(chars(foo), chars(bar));
     }
 
     private ZipStream<Long, Character> indexedBar(String bar) {
-        return ZipStream.withIndexes(chars(bar));
+        return ZipStreams.withIndexes(chars(bar));
     }
 
     private String joinZipChars(ZipStream<?, ?> map) {
@@ -323,6 +441,7 @@ public class ZipStreamTest {
         return IntStream.range(0, size == null ? text.length() : size).mapToObj(text::charAt);
     }
 
+    @SuppressWarnings("SameParameterValue")
     private void assertZipped(ZipStream<?, ?> stream, String expected) {
         Stream<String> map = stream.map((x, y) -> "" + x + y);
         assertEquals(expected, joinStrings(map));

@@ -1,9 +1,8 @@
 package no.scienta.alchemy.zipstream;
 
-import java.util.Iterator;
+import java.util.Comparator;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 final class UnmergedZipStream<X, Y> extends AbstractZipStream<X, Y> {
 
@@ -32,6 +31,21 @@ final class UnmergedZipStream<X, Y> extends AbstractZipStream<X, Y> {
     }
 
     @Override
+    public <A, B> ZipStream<A, B> map(Function<X, A> x2a, Function<Y, B> y2b) {
+        return new UnmergedZipStream<>(xs.map(x2a), ys.map(y2b));
+    }
+
+    @Override
+    public <A> ZipStream<A, Y> mapX(Function<X, A> f) {
+        return new UnmergedZipStream<>(xs.map(f), ys);
+    }
+
+    @Override
+    public <B> ZipStream<X, B> mapY(Function<Y, B> f) {
+        return new UnmergedZipStream<>(xs, ys.map(f));
+    }
+
+    @Override
     public <A, B> ZipStream<A, B> flatMap(Function<X, Stream<A>> x2a, Function<Y, Stream<B>> y2b) {
         return new UnmergedZipStream<>(xs.flatMap(x2a), ys.flatMap(y2b));
     }
@@ -57,32 +71,37 @@ final class UnmergedZipStream<X, Y> extends AbstractZipStream<X, Y> {
     }
 
     @Override
+    public ZipStream<X, Y> sortedX() {
+        return convert().sortedX();
+    }
+
+    @Override
+    public ZipStream<X, Y> sortedX(Comparator<X> comparator) {
+        return convert().sortedX(comparator);
+    }
+
+    @Override
+    public ZipStream<X, Y> sortedY() {
+        return convert().sortedY();
+    }
+
+    @Override
+    public ZipStream<X, Y> sortedY(Comparator<Y> comparator) {
+        return convert().sortedY(comparator);
+    }
+
+    @Override
     public ZipStream<Y, X> flip() {
         return new UnmergedZipStream<>(ys, xs);
     }
 
     @Override
-    protected ZipStream<X, Y> convert() {
-        return new MergedZipStream<>(combineWithZip(xs, ys));
+    protected MergedZipStream<X, Y> convert() {
+        return new MergedZipStream<>(ZipStreams.combineWithZip(xs, ys));
     }
 
-    private static <X, Y> Stream<Zip<X, Y>> combineWithZip(Stream<X> xs, Stream<Y> ys) {
-        Iterable<Zip<X, Y>> i = iterable(xs.iterator(), ys.iterator());
-        return StreamSupport.stream(i.spliterator(),
-                xs.isParallel() || ys.isParallel());
-    }
-
-    private static <X, Y> Iterable<Zip<X, Y>> iterable(Iterator<X> xi, Iterator<Y> yi) {
-        return () -> new Iterator<Zip<X, Y>>() {
-            @Override
-            public boolean hasNext() {
-                return xi.hasNext() && yi.hasNext();
-            }
-
-            @Override
-            public Zip<X, Y> next() {
-                return new ZipImpl<>(xi.next(), yi.next());
-            }
-        };
+    @Override
+    public boolean isParallel() {
+        return xs.isParallel() || ys.isParallel();
     }
 }

@@ -1,70 +1,26 @@
 package no.scienta.alchemy.zipstream;
 
-import java.util.Collection;
-import java.util.Iterator;
+import java.util.Comparator;
 import java.util.Map;
-import java.util.Spliterator;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.*;
 import java.util.stream.*;
 
-@SuppressWarnings("SameParameterValue")
-public interface ZipStream<X, Y> extends BaseStream<ZipStream.Zip<X, Y>, ZipStream<X, Y>> {
-
-    static <X, Y> ZipStream<X, Y> from(Stream<X> xs, Stream<Y> ys) {
-        return new UnmergedZipStream<>(xs, ys);
-    }
-
-    static <X, Y> ZipStream<X, Y> from(Stream<X> xs, Function<X, Y> f) {
-        Stream<Zip<X, Y>> stream = xs.map(x -> new ZipImpl<>(x, f.apply(x)));
-        return new MergedZipStream<>(stream);
-    }
-
-    static <X, Y> ZipStream<X, Y> from(Map<X, Y> map) {
-        Stream<Zip<X, Y>> stream = map.entrySet().stream().map(e -> new ZipImpl<>(e.getKey(), e.getValue()));
-        return new MergedZipStream<>(stream);
-    }
-
-    static <X, Y> ZipStream<X, Y> fromEntries(Collection<Map.Entry<X, Y>> es) {
-        Stream<Zip<X, Y>> stream = es.stream().map(e -> new ZipImpl<>(e.getKey(), e.getValue()));
-        return new MergedZipStream<>(stream);
-    }
-
-    static <X, Y> ZipStream<X, Y> fromEntries(Stream<Map.Entry<X, Y>> es) {
-        Stream<Zip<X, Y>> stream = es.map(e -> new ZipImpl<>(e.getKey(), e.getValue()));
-        return new MergedZipStream<>(stream);
-    }
-
-    static <Y> ZipStream<Long, Y> withIndexes(Stream<Y> ys) {
-        AtomicLong al = new AtomicLong();
-        Stream<Zip<Long, Y>> stream = ys.map(y -> new ZipImpl<>(al.getAndIncrement(), y));
-        return new MergedZipStream<>(stream);
-    }
+@SuppressWarnings({"SameParameterValue", "unused"})
+public interface ZipStream<X, Y> extends BaseStream<Zip<X, Y>, ZipStream<X, Y>> {
 
     ZipStream<Y, X> flip();
 
-    default ZipStream<X, Y> filter(BiPredicate<X, Y> p) {
-        Stream<Zip<X, Y>> stream = stream().filter(o -> p.test(o.x(), o.y()));
-        return new MergedZipStream<>(stream);
-    }
+    ZipStream<X, Y> filter(BiPredicate<X, Y> p);
 
-    default ZipStream<X, Y> filterX(Predicate<X> p) {
-        Stream<Zip<X, Y>> stream = stream().filter(o -> p.test(o.x()));
-        return new MergedZipStream<>(stream);
-    }
+    ZipStream<X, Y> filterX(Predicate<X> p);
 
-    default ZipStream<X, Y> filterY(Predicate<Y> p) {
-        Stream<Zip<X, Y>> stream = stream().filter(o -> p.test(o.y()));
-        return new MergedZipStream<>(stream);
-    }
+    ZipStream<X, Y> filterY(Predicate<Y> p);
 
     <A, B> ZipStream<A, B> map(Function<X, A> x2a, Function<Y, B> y2b);
 
     <A> ZipStream<A, Y> mapX(Function<X, A> f);
 
     <B> ZipStream<X, B> mapY(Function<Y, B> f);
-
-    Stream<Zip<X, Y>> stream();
 
     <A, B> ZipStream<A, B> flatMap(Function<X, Stream<A>> x2a, Function<Y, Stream<B>> y2b);
 
@@ -76,137 +32,65 @@ public interface ZipStream<X, Y> extends BaseStream<ZipStream.Zip<X, Y>, ZipStre
 
     ZipStream<X, Y> limit(long limit);
 
+    ZipStream<X, Y> sortedX();
+
+    ZipStream<X, Y> sortedX(Comparator<X> comparator);
+
+    ZipStream<X, Y> sortedY();
+
+    ZipStream<X, Y> sortedY(Comparator<Y> comparator);
+
     Stream<X> toX();
 
     Stream<Y> toY();
 
-    default IntStream mapToInt(BiFunction<X, Y, Integer> f) {
-        return stream().mapToInt(o -> f.apply(o.x(), o.y()));
-    }
+    IntStream mapToInt(BiFunction<X, Y, Integer> f);
 
-    default LongStream mapToLong(BiFunction<X, Y, Long> f) {
-        return stream().mapToLong(o -> f.apply(o.x(), o.y()));
-    }
+    LongStream mapToLong(BiFunction<X, Y, Long> f);
 
-    default DoubleStream mapToDouble(BiFunction<X, Y, Double> f) {
-        return stream().mapToDouble(o -> f.apply(o.x(), o.y()));
-    }
+    DoubleStream mapToDouble(BiFunction<X, Y, Double> f);
 
-    default Map<X, Y> toMap() {
-        return stream().collect(Collectors.toMap(Zip::x, Zip::y));
-    }
+    Map<X, Y> toMap();
 
-    default Map<X, Y> toMap(BinaryOperator<Y> merge) {
-        return stream().collect(Collectors.toMap(Zip::x, Zip::y, merge));
-    }
+    Map<X, Y> toMap(BinaryOperator<Y> merge);
 
-    default Map<X, Y> toMap(BinaryOperator<Y> merge, Supplier<Map<X, Y>> map) {
-        return stream().collect(Collectors.toMap(Zip::x, Zip::y, merge, map));
-    }
+    Map<X, Y> toMap(BinaryOperator<Y> merge, Supplier<Map<X, Y>> map);
 
-    default void forEach(BiConsumer<X, Y> op) {
-        stream().forEach(o -> op.accept(o.x(), o.y()));
-    }
+    void forEach(BiConsumer<X, Y> op);
 
-    default void forEachX(Consumer<X> op) {
-        toX().forEach(op);
-    }
+    void forEachX(Consumer<X> op);
 
-    default void forEachY(Consumer<Y> op) {
-        toY().forEach(op);
-    }
+    void forEachY(Consumer<Y> op);
 
-    default <R> Stream<R> map(BiFunction<X, Y, R> f) {
-        return stream().map(o -> f.apply(o.x(), o.y()));
-    }
+    <R> Stream<R> map(BiFunction<X, Y, R> f);
 
-    default <R> Stream<R> flatMap(BiFunction<X, Y, Stream<R>> f) {
-        return stream().flatMap(o -> f.apply(o.x(), o.y()));
-    }
+    <R> Stream<R> flatMap(BiFunction<X, Y, Stream<R>> f);
 
-    default <R> R reduce(R r, Reducer<R, X, Y> fun, BinaryOperator<R> combiner) {
-        return stream().reduce(r, (acc, o) -> fun.apply(acc, o.x(), o.y()), combiner);
-    }
+    <R> R reduce(R r, Reducer<R, X, Y> fun, BinaryOperator<R> combiner);
 
-    default <R> R reduceX(R r, BiFunction<R, X, R> fun, BinaryOperator<R> combiner) {
-        return toX().reduce(r, fun, combiner);
-    }
+    <R> R reduceX(R r, BiFunction<R, X, R> fun, BinaryOperator<R> combiner);
 
-    default <R> R reduceY(R r, BiFunction<R, Y, R> fun, BinaryOperator<R> combiner) {
-        return toY().reduce(r, fun, combiner);
-    }
+    <R> R reduceY(R r, BiFunction<R, Y, R> fun, BinaryOperator<R> combiner);
 
-    default <R, A> R collect(Collector<Zip<X, Y>, A, R> collector) {
-        return stream().collect(collector);
-    }
+    <R, A> R collectX(Collector<X, A, R> collector);
 
-    default <R, A> R collectX(Collector<X, A, R> collector) {
-        return toX().collect(collector);
-    }
+    <R, A> R collectY(Collector<Y, A, R> collector);
 
-    default <R, A> R collectY(Collector<Y, A, R> collector) {
-        return toY().collect(collector);
-    }
+    boolean anyMatch(BiPredicate<X, Y> p);
 
-    default <R> R collect(Supplier<R> supplier,
-                          BiConsumer<R, Zip<X, Y>> accumulator,
-                          BiConsumer<R, R> combiner) {
-        return stream().collect(supplier, accumulator, combiner);
-    }
+    boolean anyMatchX(Predicate<X> p);
 
-    default boolean anyMatch(BiPredicate<X, Y> p) {
-        return stream().anyMatch(o -> p.test(o.x(), o.y()));
-    }
+    boolean anyMatchY(Predicate<Y> p);
 
-    default boolean anyMatchX(Predicate<X> p) {
-        return toX().anyMatch(p);
-    }
+    boolean allMatch(BiPredicate<X, Y> p);
 
-    default boolean anyMatchY(Predicate<Y> p) {
-        return toY().anyMatch(p);
-    }
+    boolean allMatchX(Predicate<X> p);
 
-    default boolean allMatch(BiPredicate<X, Y> p) {
-        return stream().allMatch(o -> p.test(o.x(), o.y()));
-    }
+    boolean allMatchY(Predicate<Y> p);
 
-    default boolean allMatchX(Predicate<X> p) {
-        return toX().allMatch(p);
-    }
-
-    default boolean allMatchY(Predicate<Y> p) {
-        return toY().allMatch(p);
-    }
-
-    @Override
-    default boolean isParallel() {
-        return stream().isParallel();
-    }
-
-    @Override
-    default Iterator<Zip<X, Y>> iterator() {
-        return stream().iterator();
-    }
-
-    @Override
-    default void close() {
-        stream().close();
-    }
-
-    @Override
-    default Spliterator<Zip<X, Y>> spliterator() {
-        return stream().spliterator();
-    }
-
+    @FunctionalInterface
     interface Reducer<R, X, Y> {
 
         R apply(R t, X a, Y b);
-    }
-
-    interface Zip<X, Y> {
-
-        X x();
-
-        Y y();
     }
 }

@@ -1,5 +1,6 @@
 package no.scienta.alchemy.zipstream;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -26,6 +27,46 @@ final class MergedZipStream<X, Y> extends AbstractZipStream<X, Y> {
     @Override
     public Stream<Zip<X, Y>> stream() {
         return stream;
+    }
+
+    @Override
+    public ZipStream<X, Y> sortedX(Comparator<X> comparator) {
+        return new MergedZipStream<>(stream.sorted((o1, o2) -> comparator.compare(o1.x(), o2.x())));
+    }
+
+    @Override
+    public ZipStream<X, Y> sortedY(Comparator<Y> comparator) {
+        return new MergedZipStream<>(stream.sorted((o1, o2) -> comparator.compare(o1.y(), o2.y())));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public ZipStream<X, Y> sortedX() {
+        return new MergedZipStream<>(stream.sorted((o1, o2) -> ((Comparable<X>) o1.x()).compareTo(o2.x())));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public ZipStream<X, Y> sortedY() {
+        return new MergedZipStream<>(stream.sorted((o1, o2) -> ((Comparable<Y>) o1.y()).compareTo(o2.y())));
+    }
+
+    @Override
+    public <A, B> ZipStream<A, B> map(Function<X, A> x2a, Function<Y, B> y2b) {
+        return new MergedZipStream<>(stream.map(zip ->
+                new Zip<>(x2a.apply(zip.x()), y2b.apply(zip.y()))));
+    }
+
+    @Override
+    public <A> ZipStream<A, Y> mapX(Function<X, A> f) {
+        return new MergedZipStream<>(stream().map(zip ->
+                new Zip<>(f.apply(zip.x()), zip.y())));
+    }
+
+    @Override
+    public <B> ZipStream<X, B> mapY(Function<Y, B> f) {
+        return new MergedZipStream<>(stream().map(zip ->
+                new Zip<>(zip.x(), f.apply(zip.y()))));
     }
 
     @Override
@@ -62,5 +103,10 @@ final class MergedZipStream<X, Y> extends AbstractZipStream<X, Y> {
     protected ZipStream<X, Y> convert() {
         List<Zip<X, Y>> collect = stream.collect(Collectors.toList());
         return new UnmergedZipStream<>(collect.stream().map(Zip::x), collect.stream().map(Zip::y));
+    }
+
+    @Override
+    public boolean isParallel() {
+        return stream.isParallel();
     }
 }
