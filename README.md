@@ -4,10 +4,13 @@
 Stream<Foo> foos = foos();
 Stream<Bar> bars = bars();
 
-ZipStream.from(foos, bars).forEach((foo, bar) ->
-  stuff(foo, bar));
+ZipStreams.from(foos, bars)
+  .forEach((foo, bar) -> doStuff(foo, bar));
 
-Stream<FooBar> foobars = ZipStream.from(foos(), bars()).map((foo, bar) ->
-  foo.and(bar)));
+Stream<FooBar> foobars = ZipStreams.from(foos(), bars())
+  .map((foo, bar) -> foo.and(bar)));
+
+Map<Foo, Bar> foobars = ZipStreams.from(foos(), bars())
+  .toMap();
 ```
 
