@@ -1,6 +1,5 @@
 package no.scienta.alchemy.zipstream;
 
-import java.util.Comparator;
 import java.util.Map;
 import java.util.function.*;
 import java.util.stream.*;
@@ -32,13 +31,15 @@ public interface ZipStream<X, Y> extends BaseStream<Zip<X, Y>, ZipStream<X, Y>> 
 
     ZipStream<X, Y> limit(long limit);
 
+    ZipStream<X, Y> sorted(Comparator<X, Y> comparator);
+
     ZipStream<X, Y> sortedX();
 
-    ZipStream<X, Y> sortedX(Comparator<X> comparator);
+    ZipStream<X, Y> sortedX(java.util.Comparator<X> comparator);
 
     ZipStream<X, Y> sortedY();
 
-    ZipStream<X, Y> sortedY(Comparator<Y> comparator);
+    ZipStream<X, Y> sortedY(java.util.Comparator<Y> comparator);
 
     Stream<X> toX();
 
@@ -92,5 +93,11 @@ public interface ZipStream<X, Y> extends BaseStream<Zip<X, Y>, ZipStream<X, Y>> 
     interface Reducer<R, X, Y> {
 
         R apply(R t, X a, Y b);
+    }
+
+    @FunctionalInterface
+    interface Comparator<X, Y> {
+
+        int compare(X x1, Y y1, X x2, Y y2);
     }
 }

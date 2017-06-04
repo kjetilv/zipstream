@@ -33,12 +33,16 @@ public final class ZipStreams {
         return new MergedZipStream<>(xs.map(x -> new Zip<>(x, f.apply(x))));
     }
 
+    public static <X, Y> ZipStream<X, Y> computed(Function<Y, X> f, Stream<Y> ys) {
+        return new MergedZipStream<>(ys.map(y -> new Zip<>(f.apply(y), y)));
+    }
+
     public static <Y> ZipStream<Long, Y> withIndexes(Stream<Y> ys) {
         AtomicLong al = new AtomicLong();
         return new MergedZipStream<>(ys.map(y -> new Zip<>(al.getAndIncrement(), y)));
     }
 
-    static <X, Y> Stream<Zip<X, Y>> combineWithZip(Stream<X> xs, Stream<Y> ys) {
+    static <X, Y> Stream<Zip<X, Y>> combine(Stream<X> xs, Stream<Y> ys) {
         Iterable<Zip<X, Y>> i = iterable(xs.iterator(), ys.iterator());
         return StreamSupport.stream(i.spliterator(), xs.isParallel() || ys.isParallel());
     }
@@ -58,7 +62,7 @@ public final class ZipStreams {
     }
 
     private static <X, Y> Stream<Zip<X, Y>> zip(Stream<X> xs, Stream<Y> ys) {
-        return combineWithZip(xs, ys);
+        return combine(xs, ys);
     }
 
     private ZipStreams() {

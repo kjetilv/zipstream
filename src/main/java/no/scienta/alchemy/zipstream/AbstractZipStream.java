@@ -10,17 +10,17 @@ abstract class AbstractZipStream<X, Y> implements ZipStream<X, Y> {
 
     @Override
     public ZipStream<X, Y> filter(BiPredicate<X, Y> p) {
-        return new MergedZipStream<>(stream().filter(o -> p.test(o.x(), o.y())));
+        return merged(stream().filter(o -> p.test(o.x(), o.y())));
     }
 
     @Override
     public ZipStream<X, Y> filterX(Predicate<X> p) {
-        return new MergedZipStream<>(stream().filter(o -> p.test(o.x())));
+        return merged(stream().filter(o -> p.test(o.x())));
     }
 
     @Override
     public ZipStream<X, Y> filterY(Predicate<Y> p) {
-        return new MergedZipStream<>(stream().filter(o -> p.test(o.y())));
+        return merged(stream().filter(o -> p.test(o.y())));
     }
 
     @Override
@@ -133,28 +133,25 @@ abstract class AbstractZipStream<X, Y> implements ZipStream<X, Y> {
         return toY().allMatch(p);
     }
 
-    protected abstract ZipStream<X, Y> convert();
-
-    protected abstract Stream<Zip<X, Y>> stream();
-
     @Override
     public MergedZipStream<X, Y> sequential() {
-        return new MergedZipStream<>(stream().sequential());
+        return merged(stream().sequential());
     }
 
     @Override
     public MergedZipStream<X, Y> parallel() {
-        return new MergedZipStream<>(stream().parallel());
+        return merged(stream().parallel());
     }
 
     @Override
     public MergedZipStream<X, Y> unordered() {
-        return new MergedZipStream<>(stream().unordered());
+        Stream<Zip<X, Y>> unordered = stream().unordered();
+        return merged(unordered);
     }
 
     @Override
     public MergedZipStream<X, Y> onClose(Runnable closeHandler) {
-        return new MergedZipStream<>(stream().onClose(closeHandler));
+        return merged(stream().onClose(closeHandler));
     }
 
     @Override
@@ -170,5 +167,13 @@ abstract class AbstractZipStream<X, Y> implements ZipStream<X, Y> {
     @Override
     public Spliterator<Zip<X, Y>> spliterator() {
         return stream().spliterator();
+    }
+
+    protected abstract ZipStream<X, Y> convert();
+
+    protected abstract Stream<Zip<X, Y>> stream();
+
+    MergedZipStream<X, Y> merged(Stream<Zip<X, Y>> unordered) {
+        return new MergedZipStream<>(unordered);
     }
 }

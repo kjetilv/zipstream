@@ -15,6 +15,18 @@ import static org.junit.Assert.assertTrue;
 public class ZipStreamTest {
 
     @Test
+    public void testComputedX() {
+        assertEquals("aaa3bb2c1", joinZipChars(
+                ZipStreams.computed(Stream.of("aaa", "bb", "c"), String::length)));
+    }
+
+    @Test
+    public void testComputedY() {
+        assertEquals("3aaa2bb1c", joinZipChars(
+                ZipStreams.computed(String::length, Stream.of("aaa", "bb", "c"))));
+    }
+
+    @Test
     public void testFlatMap() {
         Stream<Character> characterStream = foobar("foo", "bar")
                 .flatMap((c1, c2) -> Stream.of(c1, c2));
@@ -355,6 +367,24 @@ public class ZipStreamTest {
     public void testParallel() {
         ZipStream<Character, Character> from = ZipStreams.from(chars("foo"), chars("bar"));
         assertTrue(from.parallel().isParallel());
+    }
+
+    @Test
+    public void testSorted() {
+        ZipStream<String, Integer> stream =
+                ZipStreams.from(Stream.of("ccc", "bb", "a"), Stream.of(3, 2, 1));
+        assertEquals("a1bb2ccc3", joinZipChars(stream.sorted((x1, y1, x2, y2) ->
+                x1.compareTo(x2) + y1.compareTo(y2))
+        ));
+    }
+
+    @Test
+    public void testSortedUnmerged() {
+        ZipStream<String, Integer> stream =
+                ZipStreams.computed(Stream.of("ccc", "bb", "a"), String::length);
+        assertEquals("a1bb2ccc3", joinZipChars(stream.sorted((x1, y1, x2, y2) ->
+                x1.compareTo(x2) + y1.compareTo(y2))
+        ));
     }
 
     @Test

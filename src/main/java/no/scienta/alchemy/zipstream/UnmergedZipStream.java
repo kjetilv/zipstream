@@ -1,6 +1,5 @@
 package no.scienta.alchemy.zipstream;
 
-import java.util.Comparator;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -71,12 +70,17 @@ final class UnmergedZipStream<X, Y> extends AbstractZipStream<X, Y> {
     }
 
     @Override
+    public ZipStream<X, Y> sorted(Comparator<X, Y> comparator) {
+        return convert().sorted(comparator);
+    }
+
+    @Override
     public ZipStream<X, Y> sortedX() {
         return convert().sortedX();
     }
 
     @Override
-    public ZipStream<X, Y> sortedX(Comparator<X> comparator) {
+    public ZipStream<X, Y> sortedX(java.util.Comparator<X> comparator) {
         return convert().sortedX(comparator);
     }
 
@@ -86,7 +90,7 @@ final class UnmergedZipStream<X, Y> extends AbstractZipStream<X, Y> {
     }
 
     @Override
-    public ZipStream<X, Y> sortedY(Comparator<Y> comparator) {
+    public ZipStream<X, Y> sortedY(java.util.Comparator<Y> comparator) {
         return convert().sortedY(comparator);
     }
 
@@ -97,7 +101,7 @@ final class UnmergedZipStream<X, Y> extends AbstractZipStream<X, Y> {
 
     @Override
     protected MergedZipStream<X, Y> convert() {
-        return new MergedZipStream<>(ZipStreams.combineWithZip(xs, ys));
+        return merged(ZipStreams.combine(xs, ys));
     }
 
     @Override
