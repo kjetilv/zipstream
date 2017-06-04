@@ -11,4 +11,3 @@ Stream<FooBar> foobars = ZipStream.from(foos(), bars()).map((foo, bar) ->
   foo.and(bar)));
 ```
 
-TODO: Make work.
