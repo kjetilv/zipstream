@@ -70,7 +70,7 @@ final class UnmergedZipStream<X, Y> extends AbstractZipStream<X, Y> {
     }
 
     @Override
-    public ZipStream<X, Y> sorted(Comparator<X, Y> comparator) {
+    public ZipStream<X, Y> sorted(BiComparator<X, Y> comparator) {
         return convert().sorted(comparator);
     }
 

@@ -115,33 +115,9 @@ public class ZipStreamTest {
     }
 
     @Test
-    public void testAllMatchX() {
-        ZipStream<Character, Character> foobar = foobar("aba", "XYZ");
-        assertTrue(foobar.allMatchX(c1 -> c1 == 'a' || c1 == 'b'));
-    }
-
-    @Test
-    public void testAllMatchY() {
-        ZipStream<Character, Character> foobar = foobar("XYZ", "aba");
-        assertTrue(foobar.allMatchY(c2 -> c2 == 'a' || c2 == 'b'));
-    }
-
-    @Test
     public void testAnyMatch() {
         ZipStream<Character, Character> foobar = foobar("abZa", "baab");
         assertTrue(foobar.anyMatch((c1, c2) -> c1 == 'Z'));
-    }
-
-    @Test
-    public void testAnyMatchX() {
-        ZipStream<Character, Character> foobar = foobar("abZa", "baab");
-        assertTrue(foobar.anyMatchX(c1 -> c1 == 'Z'));
-    }
-
-    @Test
-    public void testAnyMatchY() {
-        ZipStream<Character, Character> foobar = foobar("abXa", "baZb");
-        assertTrue(foobar.anyMatchY(c2 -> c2 == 'Z'));
     }
 
     @Test
@@ -217,28 +193,6 @@ public class ZipStreamTest {
     }
 
     @Test
-    public void testSideEffectsX() {
-        StringBuilder sb = new StringBuilder();
-        foobar("foo", "bar").forEachX(c1 -> {
-            sb.insert(0, c1);
-            sb.insert(0, "-");
-        });
-
-        assertEquals("-o-o-f", sb.toString());
-    }
-
-    @Test
-    public void testSideEffectsY() {
-        StringBuilder sb = new StringBuilder();
-        foobar("foo", "bar").forEachY(c2 -> {
-            sb.insert(0, c2);
-            sb.insert(0, "-");
-        });
-
-        assertEquals("-r-a-b", sb.toString());
-    }
-
-    @Test
     public void testFlip() {
         String ab = foobar("foo", "bar")
                 .map((c1, c2) -> "" + c1 + c2)
@@ -271,20 +225,6 @@ public class ZipStreamTest {
         ZipStream<Character, Character> foobar = foobar("foo", "bar");
         String reduce = foobar.reduce("1969", (t, a, b) -> t + a + b, String::concat);
         assertEquals(reduce, "1969fboaor");
-    }
-
-    @Test
-    public void testReduceX() {
-        ZipStream<Character, Character> foobar = foobar("foo", "bar");
-        String reduce = foobar.reduceX("1969", (t, a) -> t + a, String::concat);
-        assertEquals(reduce, "1969foo");
-    }
-
-    @Test
-    public void testReduceY() {
-        ZipStream<Character, Character> foobar = foobar("foo", "bar");
-        String reduce = foobar.reduceY("1969", (t, b) -> t + b, String::concat);
-        assertEquals(reduce, "1969bar");
     }
 
     @Test
@@ -341,20 +281,6 @@ public class ZipStreamTest {
                 .mapX(Long::doubleValue);
         DoubleStream longStream = s.mapToDouble((i1, i2) -> i1 + i2);
         assertEquals(6.0D, longStream.sum(), 0.01D);
-    }
-
-    @Test
-    public void testCollectX() {
-        ZipStream<Long, Character> bar = indexedBar("bar");
-        List<Long> longs = bar.collectX(Collectors.toList());
-        assertEquals(Arrays.asList(0L, 1L, 2L), longs);
-    }
-
-    @Test
-    public void testCollectY() {
-        ZipStream<Long, Character> bar = indexedBar("bar");
-        List<Character> longs = bar.collectY(Collectors.toList());
-        assertEquals(Arrays.asList('b', 'a', 'r'), longs);
     }
 
     @Test

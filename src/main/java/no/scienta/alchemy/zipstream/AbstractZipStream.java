@@ -29,13 +29,28 @@ abstract class AbstractZipStream<X, Y> implements ZipStream<X, Y> {
     }
 
     @Override
+    public IntStream flatMapToInt(BiFunction<X, Y, IntStream> f) {
+        return stream().flatMapToInt(o -> f.apply(o.x(), o.y()));
+    }
+
+    @Override
     public LongStream mapToLong(BiFunction<X, Y, Long> f) {
         return stream().mapToLong(o -> f.apply(o.x(), o.y()));
     }
 
     @Override
+    public LongStream flatMapToLong(BiFunction<X, Y, LongStream> f) {
+        return stream().flatMapToLong(o -> f.apply(o.x(), o.y()));
+    }
+
+    @Override
     public DoubleStream mapToDouble(BiFunction<X, Y, Double> f) {
         return stream().mapToDouble(o -> f.apply(o.x(), o.y()));
+    }
+
+    @Override
+    public DoubleStream flatMapToDouble(BiFunction<X, Y, DoubleStream> f) {
+        return stream().flatMapToDouble(o -> f.apply(o.x(), o.y()));
     }
 
     @Override
@@ -59,16 +74,6 @@ abstract class AbstractZipStream<X, Y> implements ZipStream<X, Y> {
     }
 
     @Override
-    public void forEachX(Consumer<X> op) {
-        toX().forEach(op);
-    }
-
-    @Override
-    public void forEachY(Consumer<Y> op) {
-        toY().forEach(op);
-    }
-
-    @Override
     public <R> Stream<R> map(BiFunction<X, Y, R> f) {
         return stream().map(o -> f.apply(o.x(), o.y()));
     }
@@ -79,28 +84,8 @@ abstract class AbstractZipStream<X, Y> implements ZipStream<X, Y> {
     }
 
     @Override
-    public <R> R reduce(R r, Reducer<R, X, Y> fun, BinaryOperator<R> combiner) {
+    public <R> R reduce(R r, BiReducer<R, X, Y> fun, BinaryOperator<R> combiner) {
         return stream().reduce(r, (acc, o) -> fun.apply(acc, o.x(), o.y()), combiner);
-    }
-
-    @Override
-    public <R> R reduceX(R r, BiFunction<R, X, R> fun, BinaryOperator<R> combiner) {
-        return toX().reduce(r, fun, combiner);
-    }
-
-    @Override
-    public <R> R reduceY(R r, BiFunction<R, Y, R> fun, BinaryOperator<R> combiner) {
-        return toY().reduce(r, fun, combiner);
-    }
-
-    @Override
-    public <R, A> R collectX(Collector<X, A, R> collector) {
-        return toX().collect(collector);
-    }
-
-    @Override
-    public <R, A> R collectY(Collector<Y, A, R> collector) {
-        return toY().collect(collector);
     }
 
     @Override
@@ -109,28 +94,8 @@ abstract class AbstractZipStream<X, Y> implements ZipStream<X, Y> {
     }
 
     @Override
-    public boolean anyMatchX(Predicate<X> p) {
-        return toX().anyMatch(p);
-    }
-
-    @Override
-    public boolean anyMatchY(Predicate<Y> p) {
-        return toY().anyMatch(p);
-    }
-
-    @Override
     public boolean allMatch(BiPredicate<X, Y> p) {
         return stream().allMatch(o -> p.test(o.x(), o.y()));
-    }
-
-    @Override
-    public boolean allMatchX(Predicate<X> p) {
-        return toX().allMatch(p);
-    }
-
-    @Override
-    public boolean allMatchY(Predicate<Y> p) {
-        return toY().allMatch(p);
     }
 
     @Override
@@ -169,9 +134,9 @@ abstract class AbstractZipStream<X, Y> implements ZipStream<X, Y> {
         return stream().spliterator();
     }
 
-    protected abstract ZipStream<X, Y> convert();
+    abstract ZipStream<X, Y> convert();
 
-    protected abstract Stream<Zip<X, Y>> stream();
+    abstract Stream<Zip<X, Y>> stream();
 
     MergedZipStream<X, Y> merged(Stream<Zip<X, Y>> unordered) {
         return new MergedZipStream<>(unordered);

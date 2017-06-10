@@ -29,7 +29,7 @@ final class MergedZipStream<X, Y> extends AbstractZipStream<X, Y> {
     }
 
     @Override
-    public ZipStream<X, Y> sorted(Comparator<X, Y> comparator) {
+    public ZipStream<X, Y> sorted(BiComparator<X, Y> comparator) {
         return merged(stream.sorted((o1, o2) -> comparator.compare(o1.x(), o1.y(), o2.x(), o2.y())));
     }
 
